@@ -1,0 +1,11 @@
+{
+    "jackzoorob": [
+        {
+            "service": "netflix",
+            "duration": 30,
+            "start_date": "2025-05-24T22:15:11.547554",
+            "end_date": "2025-06-23T22:15:11.547554",
+            "price": 3.0
+        }
+    ]
+}
