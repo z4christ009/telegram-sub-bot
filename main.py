@@ -553,7 +553,7 @@ def main():
     add_person_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_person_start, pattern="add_person")],
         states={ADD_PERSON: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_person_receive)]},
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(add_person_conv)
 
@@ -561,7 +561,7 @@ def main():
     remove_person_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(remove_person_start, pattern="remove_person")],
         states={REMOVE_PERSON: [CallbackQueryHandler(remove_person_confirm, pattern="remove_person_.*")]},
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(remove_person_conv)
 
@@ -575,7 +575,7 @@ def main():
             ADD_ACCOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_account_receive)],
             SET_PRICE_SERVICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_account_service_receive)],
         },
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(add_account_conv)
 
@@ -583,7 +583,7 @@ def main():
     remove_account_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(remove_account_start, pattern="remove_account")],
         states={REMOVE_ACCOUNT: [CallbackQueryHandler(remove_account_confirm, pattern="remove_account_.*")]},
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(remove_account_conv)
 
@@ -597,7 +597,7 @@ def main():
             ADD_SUB_SERVICE: [CallbackQueryHandler(add_subscription_service_chosen, pattern="addsub_service_.*")],
             ADD_SUB_DURATION: [CallbackQueryHandler(add_subscription_duration_chosen, pattern="addsub_duration_.*")],
         },
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(add_sub_conv)
 
@@ -616,7 +616,7 @@ def main():
             SET_PRICE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_price_duration_receive)],
             SET_PRICE_SAVE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_price_amount_receive)],
         },
-        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(set_price_conv)
 
@@ -634,3 +634,49 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# --- Set Price with 4 durations ---
+async def set_price_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+    await update.callback_query.message.reply_text("Enter the account/service name to set prices for:")
+    return SET_PRICE_ACCOUNT
+
+async def set_price_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    account = update.message.text
+    context.user_data['price_account'] = account
+    context.user_data['price_data'] = {}
+    await update.message.reply_text("Enter price for 30 days:")
+    return PRICE_30
+
+async def set_price_30(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['price_data']['30'] = update.message.text
+    await update.message.reply_text("Enter price for 91 days:")
+    return PRICE_91
+
+async def set_price_91(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['price_data']['91'] = update.message.text
+    await update.message.reply_text("Enter price for 182 days:")
+    return PRICE_182
+
+async def set_price_182(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['price_data']['182'] = update.message.text
+    await update.message.reply_text("Enter price for 365 days:")
+    return PRICE_365
+
+async def set_price_365(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['price_data']['365'] = update.message.text
+    account = context.user_data['price_account']
+    prices = context.user_data['price_data']
+    data = load_data()
+    updated = False
+    for user_id, user_data in data.items():
+        if account in user_data.get("accounts", {}):
+            user_data["accounts"][account]["price"] = prices
+            updated = True
+    if updated:
+        save_data(data)
+        await update.message.reply_text("✅ Prices updated.")
+    else:
+        await update.message.reply_text("⚠️ Account not found.")
+    return await start(update, context)
