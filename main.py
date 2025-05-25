@@ -680,3 +680,202 @@ async def set_price_365(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("⚠️ Account not found.")
     return await start(update, context)
+
+from telegram.ext import (
+    CommandHandler, CallbackQueryHandler, MessageHandler,
+    ConversationHandler, filters
+)
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("➕ Add Person", callback_data="add_person")],
+        [InlineKeyboardButton("➖ Remove Person", callback_data="remove_person")],
+        [InlineKeyboardButton("📃 List People", callback_data="list_people")],
+        [InlineKeyboardButton("➕ Add Account", callback_data="add_account")],
+        [InlineKeyboardButton("➖ Remove Account", callback_data="remove_account")],
+        [InlineKeyboardButton("📥 Add Subscription", callback_data="add_subscription")],
+        [InlineKeyboardButton("💰 Set Prices", callback_data="set_price")]
+    ]
+    await update.message.reply_text("Welcome! Choose an action:", reply_markup=InlineKeyboardMarkup(keyboard))
+
+# Dummy placeholders to prevent runtime errors (should be filled with real logic)
+async def add_person_start(update, context): pass
+async def remove_person_start(update, context): pass
+async def add_account_start(update, context): pass
+async def remove_account_start(update, context): pass
+async def add_subscription_start(update, context): pass
+async def set_price_start(update, context): pass
+
+
+# === SERVICE COMMANDS ===
+
+async def add_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Please provide a service name. Usage: /add_service <name>")
+        return
+    data = load_data()
+    service = ' '.join(context.args).strip()
+    if service in data["service_prices"]:
+        await update.message.reply_text(f"⚠️ Service '{service}' already exists.")
+        return
+    data["service_prices"][service] = {}
+    save_data(data)
+    await update.message.reply_text(f"✅ Service '{service}' has been added.")
+
+async def remove_service(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Please provide a service name. Usage: /remove_service <name>")
+        return
+    data = load_data()
+    service = ' '.join(context.args).strip()
+    if service not in data["service_prices"]:
+        await update.message.reply_text(f"❌ Service '{service}' not found.")
+        return
+    del data["service_prices"][service]
+    save_data(data)
+    await update.message.reply_text(f"🗑️ Service '{service}' has been removed.")
+
+async def list_services(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    if not data["service_prices"]:
+        await update.message.reply_text("📭 No services have been added yet.")
+        return
+    message = "🧾 Available Services and Prices:
+"
+    for service, durations in data["service_prices"].items():
+        if durations:
+            price_list = ', '.join([f"{d}d: {p}$" for d, p in durations.items()])
+        else:
+            price_list = "(no prices set)"
+        message += f"• {service} — {price_list}
+"
+    await update.message.reply_text(message)
+
+
+
+
+
+# === NEWLY ADDED FEATURES ===
+
+# /list_subscriptions
+async def list_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    if not data["people"]:
+        await update.message.reply_text("No people with subscriptions.")
+        return
+    message = "📦 Subscriptions:\n"
+    for person, info in data["people"].items():
+        subs = info.get("subscriptions", [])
+        if not subs:
+            continue
+        message += f"👤 {person}:\n"
+        for sub in subs:
+            message += f"  └ {sub['service']} (Account: {sub['account']}, Slot: {sub['slot']}, Until: {sub['end']})\n"
+    await update.message.reply_text(message or "No active subscriptions.")
+
+# /calculate_income
+async def calculate_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    total = 0
+    for person in data["people"].values():
+        for sub in person.get("subscriptions", []):
+            service = sub["service"]
+            duration = (datetime.strptime(sub["end"], "%Y-%m-%d") - datetime.strptime(sub["start"], "%Y-%m-%d")).days
+            price_data = data.get("service_prices", {}).get(service, {})
+            price = price_data.get(str(duration), 0)
+            total += float(price)
+    await update.message.reply_text(f"💰 Total estimated income: ${total:.2f}")
+
+# /export_data
+async def export_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if os.path.exists(DATA_FILE):
+        await update.message.reply_document(document=open(DATA_FILE, "rb"))
+    else:
+        await update.message.reply_text("❌ Data file not found.")
+
+# /set_default_slots <service> <count>
+async def set_default_slots(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) != 2:
+        await update.message.reply_text("Usage: /set_default_slots <service> <count>")
+        return
+    service, count = context.args[0], context.args[1]
+    data = load_data()
+    try:
+        count = int(count)
+        data.setdefault("default_slots", {})[service] = count
+        save_data(data)
+        await update.message.reply_text(f"✅ Default slots for '{service}' set to {count}.")
+    except ValueError:
+        await update.message.reply_text("Slot count must be a number.")
+
+# /add_slot <account> <slot>
+async def add_slot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) != 2:
+        await update.message.reply_text("Usage: /add_slot <account> <slot>")
+        return
+    account, slot = context.args[0], context.args[1]
+    data = load_data()
+    if account not in data["accounts"]:
+        await update.message.reply_text("❌ Account not found.")
+        return
+    data["accounts"][account]["slots"][slot] = None
+    save_data(data)
+    await update.message.reply_text(f"✅ Slot '{slot}' added to account '{account}'.")
+
+# /remove_slot <account> <slot>
+async def remove_slot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) != 2:
+        await update.message.reply_text("Usage: /remove_slot <account> <slot>")
+        return
+    account, slot = context.args[0], context.args[1]
+    data = load_data()
+    if account not in data["accounts"]:
+        await update.message.reply_text("❌ Account not found.")
+        return
+    if slot not in data["accounts"][account]["slots"]:
+        await update.message.reply_text("❌ Slot not found.")
+        return
+    del data["accounts"][account]["slots"][slot]
+    save_data(data)
+    await update.message.reply_text(f"🗑️ Slot '{slot}' removed from account '{account}'.")
+
+# /remove_subscription flow
+async def remove_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    if not data["people"]:
+        await update.message.reply_text("No people found.")
+        return
+    keyboard = [[InlineKeyboardButton(name, callback_data=f"removesub_{name}")]
+                for name in data["people"]]
+    await update.message.reply_text("Select a person to remove a subscription from:",
+                                    reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def remove_subscription_step2(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    person = query.data.replace("removesub_", "")
+    context.user_data["remove_sub_person"] = person
+    data = load_data()
+    subs = data["people"][person]["subscriptions"]
+    if not subs:
+        await query.edit_message_text("❌ No subscriptions to remove.")
+        return
+    keyboard = [[InlineKeyboardButton(
+        f"{s['service']} ({s['account']} - Slot {s['slot']})", callback_data=f"removeconf_{i}"
+    )] for i, s in enumerate(subs)]
+    await query.edit_message_text("Choose a subscription to remove:",
+                                   reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def remove_subscription_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    sub_index = int(query.data.replace("removeconf_", ""))
+    person = context.user_data["remove_sub_person"]
+    data = load_data()
+    sub = data["people"][person]["subscriptions"].pop(sub_index)
+    account = sub["account"]
+    slot = sub["slot"]
+    if account in data["accounts"]:
+        data["accounts"][account]["slots"][slot] = None
+    save_data(data)
+    await query.edit_message_text("✅ Subscription removed.")
