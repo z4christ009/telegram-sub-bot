@@ -538,6 +538,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN environment variable is not set.")
+    if not WEBHOOK_URL:
+        raise RuntimeError("WEBHOOK_URL environment variable is not set.")
     cleanup_expired_subs()  # Clean expired on startup
 
     application = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -620,7 +624,7 @@ def main():
     if WEBHOOK_URL:
         application.run_webhook(
             listen="0.0.0.0",
-            port=int(os.getenv("PORT", "8443")),
+            port=int(os.environ["PORT"]),
             url_path=BOT_TOKEN,
             webhook_url=WEBHOOK_URL + BOT_TOKEN,
         )
