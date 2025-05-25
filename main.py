@@ -553,7 +553,7 @@ def main():
     add_person_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_person_start, pattern="add_person")],
         states={ADD_PERSON: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_person_receive)]},
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
     application.add_handler(add_person_conv)
 
@@ -561,7 +561,7 @@ def main():
     remove_person_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(remove_person_start, pattern="remove_person")],
         states={REMOVE_PERSON: [CallbackQueryHandler(remove_person_confirm, pattern="remove_person_.*")]},
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
     application.add_handler(remove_person_conv)
 
@@ -575,7 +575,7 @@ def main():
             ADD_ACCOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_account_receive)],
             SET_PRICE_SERVICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, add_account_service_receive)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
     application.add_handler(add_account_conv)
 
@@ -583,7 +583,7 @@ def main():
     remove_account_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(remove_account_start, pattern="remove_account")],
         states={REMOVE_ACCOUNT: [CallbackQueryHandler(remove_account_confirm, pattern="remove_account_.*")]},
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
     application.add_handler(remove_account_conv)
 
@@ -597,7 +597,7 @@ def main():
             ADD_SUB_SERVICE: [CallbackQueryHandler(add_subscription_service_chosen, pattern="addsub_service_.*")],
             ADD_SUB_DURATION: [CallbackQueryHandler(add_subscription_duration_chosen, pattern="addsub_duration_.*")],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
     application.add_handler(add_sub_conv)
 
@@ -616,7 +616,7 @@ def main():
             SET_PRICE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_price_duration_receive)],
             SET_PRICE_SAVE_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_price_amount_receive)],
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)],
     )
     application.add_handler(set_price_conv)
 
