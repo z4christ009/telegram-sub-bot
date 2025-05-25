@@ -1,3 +1,16 @@
-__pycache__
-users_data.json
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Environment
 .env
+.env.*
+.venv/
+
+# Data
+data.json
+users_data.json
+
+# Render
+render.yaml
