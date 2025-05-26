@@ -168,7 +168,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if update.message: # User typed /start
         await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=reply_markup)
-    elif update.callback_query: # Menu was reached from a button press that directly led to 'start' (e.g. "Back to Menu" type buttons on the main menu itself)
+    elif update.callback_query: # Menu was reached from a button press that directly led to 'start'
         try:
             await update.callback_query.answer()
             await update.callback_query.edit_message_text(welcome_msg, parse_mode="Markdown", reply_markup=reply_markup)
@@ -189,17 +189,13 @@ async def send_main_menu_new_message(update: Update, context: ContextTypes.DEFAU
 async def handle_list_people_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    # list_people will now edit the message to show the list
     await list_people(update, context, from_callback=True) 
-    # Then send a new message with the main menu
     await send_main_menu_new_message(update, context)
 
 async def handle_list_subs_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    # list_subscriptions will now edit the message to show the list
     await list_subscriptions(update, context, from_callback=True) 
-    # Then send a new message with the main menu
     await send_main_menu_new_message(update, context)
 
 
@@ -220,7 +216,6 @@ async def add_person_receive(update: Update, context: ContextTypes.DEFAULT_TYPE)
         data["people"][person_name] = {"subscriptions": [], "last_active": datetime.utcnow().strftime("%Y-%m-%d")}
         save_data(data)
         await update.message.reply_text(f"🎉 Welcome aboard, {person_name}! I've added you to our family.")
-    # For MessageHandlers, start() already sends a new message, which is fine.
     await start(update, context) 
     return ConversationHandler.END
 
@@ -231,9 +226,7 @@ async def remove_person_start_cb(update: Update, context: ContextTypes.DEFAULT_T
     await update.callback_query.answer()
     if not data["people"]:
         await update.callback_query.edit_message_text("😶 It's empty here... No people to remove!")
-        # No further action, let user click a main menu button if presented, or /start
-        # Or send new menu: await send_main_menu_new_message(update, context)
-        return ConversationHandler.END # Keep it simple, let them re-initiate
+        return ConversationHandler.END 
 
     buttons = [(f"👤 {name}", f"remove_person_{name}") for name in data["people"].keys()]
     keyboard = InlineKeyboardMarkup(build_menu(buttons, 2))
@@ -267,10 +260,8 @@ async def remove_person_confirm(update: Update, context: ContextTypes.DEFAULT_TY
 # List People handler
 async def list_people(update: Update, context: ContextTypes.DEFAULT_TYPE, from_callback=False):
     data = load_data()
-    # reply_fn will be edit_message_text if from_callback is True
     reply_fn = update.callback_query.edit_message_text if from_callback and update.callback_query else context.bot.send_message 
     chat_id_to_use = update.effective_chat.id if not (from_callback and update.callback_query) else None
-
 
     if not data["people"]:
         msg_text = "🦗 Cricket sounds... No people found. Wanna invite someone?"
@@ -278,7 +269,6 @@ async def list_people(update: Update, context: ContextTypes.DEFAULT_TYPE, from_c
             await reply_fn(chat_id=chat_id_to_use, text=msg_text)
         elif update.callback_query:
             await update.callback_query.edit_message_text(msg_text)
-        # No automatic return to menu here, handled by the calling button handler
         return
 
     text = "📋 *Current Members & Their Subscriptions:*\n"
@@ -297,7 +287,6 @@ async def list_people(update: Update, context: ContextTypes.DEFAULT_TYPE, from_c
         await reply_fn(chat_id=chat_id_to_use, text=text, parse_mode="Markdown")
     elif update.callback_query:
         await update.callback_query.edit_message_text(text, parse_mode="Markdown")
-    # No automatic return to menu here, handled by the calling button handler
 
 
 # Add Account handlers
@@ -322,7 +311,7 @@ async def add_account_get_details(update: Update, context: ContextTypes.DEFAULT_
         data["accounts"][account_name] = {"service": None, "slots": {}}
         save_data(data)
         await update.message.reply_text(f"Account '{account_name}' added, but no service linked. You might need to manage this manually or add services first.") 
-        await start(update, context) # This will send a new message
+        await start(update, context) 
         return ConversationHandler.END
 
     buttons = [(f"{data['services'][s]['emoji']} {s}", f"addacc_service_{s}") for s in services]
@@ -366,7 +355,6 @@ async def remove_account_start_cb(update: Update, context: ContextTypes.DEFAULT_
     await update.callback_query.answer()
     if not data["accounts"]:
         await update.callback_query.edit_message_text("🤷‍♀️ No accounts to remove! Everything's clean.")
-        # await send_main_menu_new_message(update, context)
         return ConversationHandler.END
 
     buttons = [(f"🔑 {name} ({data['accounts'][name].get('service', 'N/A')})", f"remove_account_{name}") for name in data["accounts"].keys()] 
@@ -411,7 +399,6 @@ async def add_sub_start_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
     if not data["people"]:
         await update.callback_query.edit_message_text("😅 Oops, no people yet! Add someone first so they can enjoy subscriptions.")
-        # await send_main_menu_new_message(update, context)
         return ConversationHandler.END
     buttons = [(f"👤 {name}", f"addsub_person_{name}") for name in data["people"].keys()]
     keyboard = InlineKeyboardMarkup(build_menu(buttons, 2))
@@ -607,7 +594,6 @@ async def price_main_menu_handler(update: Update, context: ContextTypes.DEFAULT_
         return PRICE_MAIN_MENU 
 
     elif action == "main_menu_from_prices":
-        # This button intends to go back to the main menu, replacing the current price menu
         await start(update, context) 
         return ConversationHandler.END
     
@@ -627,7 +613,7 @@ async def price_main_menu_handler(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text("From which service do you want to remove a pricing option?", reply_markup=keyboard)
         return PRICE_REMOVE_SELECT_SERVICE
     
-    elif action == "set_prices_start_dummy": # This button is on the "View Services" message, to go back to Price Menu
+    elif action == "set_prices_start_dummy": 
         return await set_prices_start_cb(update, context) 
 
     return PRICE_MAIN_MENU 
@@ -665,7 +651,7 @@ async def price_get_emoji_receive(update: Update, context: ContextTypes.DEFAULT_
         await update.message.reply_text(f"👌 Emoji {emoji} saved for {service_name}! Now, for how many days is this pricing option? (e.g., 30)") 
     else:
         await update.message.reply_text("Error: Service name not found. Please start over.")
-        await start(update, context) # start() will send a new message
+        await start(update, context) 
         return ConversationHandler.END
     return PRICE_GET_DURATION_DAYS
 
@@ -685,6 +671,7 @@ async def price_get_duration_days_receive(update: Update, context: ContextTypes.
     duration_str = update.message.text.strip()
     if not duration_str.isdigit() or int(duration_str) <= 0:
         await update.message.reply_text("🙅‍♂️ Oops! Duration must be a positive number. Try again:")
+        # CORRECTED INDENTATION:
         return PRICE_GET_DURATION_DAYS 
 
     context.user_data["price_duration_days"] = int(duration_str)
@@ -706,7 +693,7 @@ async def price_get_amount_receive(update: Update, context: ContextTypes.DEFAULT
 
     if not service_name or duration_days is None:
         await update.message.reply_text("🤯 Whoops! Something went wrong (missing service or duration). Let's start setting prices over.") 
-        await start(update, context) # start() will send a new message
+        await start(update, context) 
         return ConversationHandler.END
         
     data = load_data()
@@ -719,7 +706,6 @@ async def price_get_amount_receive(update: Update, context: ContextTypes.DEFAULT
     save_data(data)
     
     emoji = data["services"][service_name].get('emoji', '❓')
-    # Send feedback as a new message
     await update.message.reply_text(
         f"""✅ *Price Set!* ✅
 
@@ -728,14 +714,11 @@ async def price_get_amount_receive(update: Update, context: ContextTypes.DEFAULT
 
 Use 'Set Prices' menu to add more options or go back to main menu.""", parse_mode="Markdown"
     )
-    # Then offer buttons to go back to Price Menu (which edits) or Main Menu (which should send new)
     keyboard = [[InlineKeyboardButton("🔙 Price Menu", callback_data="set_prices_start_dummy_end")],[InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu_from_price_set_end")]] 
     await update.message.reply_text("What next?", reply_markup=InlineKeyboardMarkup(keyboard))
-    # This return keeps them in the set_price_conv, PRICE_MAIN_MENU allows interaction with new buttons
     return PRICE_MAIN_MENU
 
 
-# Handlers for removing a price option
 async def price_remove_select_service_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -776,17 +759,11 @@ async def price_remove_select_duration_handler(update: Update, context: ContextT
     context.user_data.pop("removeprice_service", None)
     context.user_data.pop("removeprice_duration", None) 
 
-    await query.edit_message_text(feedback_message) # Edit to show completion
-    # Then offer buttons in a new message or send menu directly
-    # Option 1: Buttons for next steps
-    # keyboard = [[InlineKeyboardButton("💰 Set Prices", callback_data="set_prices_start")],[InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu_generic")]]
-    # await query.message.reply_text("What would you like to do next?", reply_markup=InlineKeyboardMarkup(keyboard))
-    # Option 2: Directly send main menu
+    await query.edit_message_text(feedback_message) 
     await send_main_menu_new_message(update, context)
     return ConversationHandler.END 
 
 async def main_menu_generic_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles 'main_menu_generic' callback, always sending a new main menu."""
     query = update.callback_query
     if query: 
         await query.answer()
@@ -794,26 +771,22 @@ async def main_menu_generic_handler(update: Update, context: ContextTypes.DEFAUL
     return ConversationHandler.END
 
 
-# Cancel handler
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name if update.effective_user else "User"
     logger.info(f"User {user_name} cancelled a conversation.")
-    cancel_message = "🚫 Operation cancelled. No changes made." # Simplified
+    cancel_message = "🚫 Operation cancelled. No changes made." 
     
     if update.message:
         await update.message.reply_text(cancel_message)
     elif update.callback_query:
         await update.callback_query.answer("Operation Cancelled")
         try:
-            # Edit the message where the cancel button was pressed
             await update.callback_query.edit_message_text(cancel_message)
         except Exception as e: 
             logger.warning(f"Could not edit message on cancel: {e}")
-            # If edit fails, send a new message
             if update.effective_chat: 
                  await context.bot.send_message(chat_id=update.effective_chat.id, text=cancel_message + " Returning to main menu.")
     
-    # Clear context data
     keys_to_clear = ["new_account_name", "addsub_person", "addsub_service", "addsub_account", 
                      "addsub_slot", "addsub_duration", "price_service_name", "price_duration_days",
                      "removeprice_service", "remove_sub_person"] 
@@ -821,16 +794,12 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if key in context.user_data:
             del context.user_data[key]
             
-    # Always send a new main menu after cancel
     await send_main_menu_new_message(update, context) 
     return ConversationHandler.END
 
 
-# ===== OTHER COMMANDS =====
-
 async def list_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE, from_callback=False):
     data = load_data() 
-    # reply_fn will be edit_message_text if from_callback is True
     reply_fn = update.callback_query.edit_message_text if from_callback and update.callback_query else context.bot.send_message
     chat_id_to_use = update.effective_chat.id if not (from_callback and update.callback_query) else None
     
@@ -840,7 +809,6 @@ async def list_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE,
             await reply_fn(chat_id=chat_id_to_use, text=msg_text)
         elif update.callback_query:
              await update.callback_query.edit_message_text(msg_text)
-        # No automatic return to menu here, handled by the calling button handler
         return
     
     message = "📦 *Active Subscriptions Overview* 📦\n"
@@ -869,7 +837,6 @@ async def list_subscriptions(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await reply_fn(chat_id=chat_id_to_use, text=message, parse_mode="Markdown")
     elif update.callback_query:
         await update.callback_query.edit_message_text(message, parse_mode="Markdown")
-    # No automatic return to menu here, handled by the calling button handler
 
 
 async def calculate_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -923,7 +890,6 @@ async def export_data(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def set_default_slots(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) != 2:
         await update.message.reply_text("Usage: /set_default_slots <ServiceName> <Count>\nExample: /set_default_slots Netflix 4\n(ServiceName must match one from 'Set Prices')")
-        # No menu here, let user re-issue command or /start
         return
     
     service_name_arg, count_str = context.args[0], context.args[1]
@@ -938,7 +904,6 @@ async def set_default_slots(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = int(count_str)
         if count < 0:
             await update.message.reply_text("🔢 Slot count must be a non-negative number. Try again!") 
-            # No menu here, error in command usage
             return
             
         data.setdefault("default_slots", {})[service_name_arg] = count
@@ -1060,7 +1025,7 @@ async def remove_sub_person_selected(update: Update, context: ContextTypes.DEFAU
     data = load_data()
     
     if person_name not in data["people"] or not data["people"][person_name].get("subscriptions"):
-         await query.edit_message_text(f"🤷‍♀️ {person_name} has no subscriptions to remove or person not found!") 
+        await query.edit_message_text(f"🤷‍♀️ {person_name} has no subscriptions to remove or person not found!") 
         context.user_data.pop("remove_sub_person", None) 
         await send_main_menu_new_message(update, context)
         return ConversationHandler.END 
@@ -1098,15 +1063,17 @@ async def remove_sub_confirm_and_delete(update: Update, context: ContextTypes.DE
     person_name = context.user_data.get("remove_sub_person")
     if not person_name:
         await query.edit_message_text("Error: User context lost. Please start removing subscription again.")
-        await send_main_menu_new_message(update, context)
+        await send_main_menu_new_message(update, context) 
         return ConversationHandler.END
         
     data = load_data()
     
-    if person_name not in data["people"] or not data["people"][person_name].get("subscriptions") or sub_index >= len(data["people"][person_name]["subscriptions"]):
+    if person_name not in data["people"] or \
+       not data["people"][person_name].get("subscriptions") or \
+       sub_index >= len(data["people"][person_name]["subscriptions"]):
         await query.edit_message_text("Error: Subscription or person not found. It might have been removed already. Please try again.") 
         context.user_data.pop("remove_sub_person", None)
-        await send_main_menu_new_message(update, context)
+        await send_main_menu_new_message(update, context) 
         return ConversationHandler.END
 
     try:
@@ -1146,7 +1113,8 @@ async def remove_sub_confirm_and_delete(update: Update, context: ContextTypes.DE
         feedback_message = "An unexpected error occurred while removing the subscription."
 
     await query.edit_message_text(feedback_message, parse_mode="Markdown")
-    context.user_data.pop("remove_sub_person", None)
+    # CORRECTED INDENTATION FOR THE FOLLOWING LINE:
+    context.user_data.pop("remove_sub_person", None) 
     await send_main_menu_new_message(update, context) 
     return ConversationHandler.END
 
@@ -1162,7 +1130,7 @@ def main():
 
     application.add_handler(CallbackQueryHandler(handle_list_people_button, pattern="list_people_cmd"))
     application.add_handler(CallbackQueryHandler(handle_list_subs_button, pattern="list_subs_cmd"))
-    application.add_handler(CallbackQueryHandler(main_menu_generic_handler, pattern="main_menu_generic")) # Used by some buttons to go to main menu
+    application.add_handler(CallbackQueryHandler(main_menu_generic_handler, pattern="main_menu_generic")) 
 
     add_person_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(add_person_start_cb, pattern="add_person_start")],
@@ -1223,8 +1191,8 @@ def main():
             PRICE_GET_DURATION_DAYS: [MessageHandler(filters.TEXT & ~filters.COMMAND, price_get_duration_days_receive)], 
             PRICE_GET_PRICE_AMOUNT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, price_get_amount_receive),
-                CallbackQueryHandler(set_prices_start_cb, pattern="set_prices_start_dummy_end"), # This leads back to price menu
-                CallbackQueryHandler(main_menu_generic_handler, pattern="main_menu_from_price_set_end") # This leads to new main menu
+                CallbackQueryHandler(set_prices_start_cb, pattern="set_prices_start_dummy_end"), 
+                CallbackQueryHandler(main_menu_generic_handler, pattern="main_menu_from_price_set_end") 
             ], 
             PRICE_REMOVE_SELECT_SERVICE: [CallbackQueryHandler(price_remove_select_service_handler, pattern="^remprice_svc_.*")],
             PRICE_REMOVE_SELECT_DURATION: [CallbackQueryHandler(price_remove_select_duration_handler, pattern="^remprice_dur_.*")],
@@ -1253,9 +1221,9 @@ def main():
     application.add_handler(CommandHandler("addslot", add_slot)) 
     application.add_handler(CommandHandler("removeslot", remove_slot)) 
 
-    # --- Corrected Webhook Section ---
+    # --- CORRECTED & STATIC WEBHOOK SECTION ---
     if WEBHOOK_URL and "PORT" in os.environ:
-        static_webhook_path = "telegramwebhook" 
+        static_webhook_path = "telegramwebhook"  # You can change this string if you want, make it unique
         full_webhook_url = f"{WEBHOOK_URL.rstrip('/')}/{static_webhook_path}"
         
         logger.info(f"Starting webhook on {full_webhook_url}")
@@ -1265,7 +1233,7 @@ def main():
             url_path=static_webhook_path, 
             webhook_url=full_webhook_url
         )
-    # --- End of Corrected Webhook Section ---
+    # --- END OF CORRECTED & STATIC WEBHOOK SECTION ---
     else:
         logger.info("Starting polling")
         application.run_polling() 
